@@ -46,11 +46,11 @@ def timeit():
 
 prompt_helper = PromptHelper(
     # maximum input size
-    max_input_size=2048,
+    context_window=2048,
     # number of output tokens
     num_output=256,
     # the maximum overlap between chunks.
-    max_chunk_overlap=20,
+    chunk_overlap_ratio=0.1,
 )
 
 
