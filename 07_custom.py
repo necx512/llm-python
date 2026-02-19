@@ -10,13 +10,15 @@ import time
 
 import torch
 from dotenv import load_dotenv
-from langchain.llms.base import LLM
-from llama_index import (
-    GPTListIndex,
-    LLMPredictor,
+from typing import ClassVar, Any, Iterator
+from llama_index.core.llms import CustomLLM, CompletionResponse, LLMMetadata
+from llama_index.core import (
+    SummaryIndex,
     PromptHelper,
-    ServiceContext,
+    Settings,
     SimpleDirectoryReader,
+    StorageContext,
+    load_index_from_storage,
 )
 from transformers import pipeline
 
@@ -54,56 +56,47 @@ prompt_helper = PromptHelper(
 )
 
 
-class LocalOPT(LLM):
+class LocalOPT(CustomLLM):
     # model_name = "facebook/opt-iml-max-30b" (this is a 60gb model)
-    model_name = "facebook/opt-iml-1.3b"  # ~2.63gb model
+    model_name: ClassVar[str] = "facebook/opt-iml-1.3b"  # ~2.63gb model
     # https://huggingface.co/docs/transformers/main_classes/pipelines
-    pipeline = pipeline(
+    _pipeline: ClassVar[Any] = pipeline(
         "text-generation",
         model=model_name,
-        device="cuda:0",
-        model_kwargs={"torch_dtype": torch.bfloat16},
+        device="cpu",
+        dtype=torch.float32,
     )
 
-    def _call(self, prompt: str, stop=None) -> str:
-        response = self.pipeline(prompt, max_new_tokens=256)[0]["generated_text"]
+    @property
+    def metadata(self) -> LLMMetadata:
+        return LLMMetadata(model_name=self.model_name)
+
+    def complete(self, prompt: str, **kwargs) -> CompletionResponse:
+        response = self._pipeline(prompt, max_new_tokens=256)[0]["generated_text"]
         # only return newly generated tokens
-        return response[len(prompt) :]
+        return CompletionResponse(text=response[len(prompt):])
 
-    @property
-    def _identifying_params(self):
-        return {"name_of_model": self.model_name}
-
-    @property
-    def _llm_type(self):
-        return "custom"
+    def stream_complete(self, prompt: str, **kwargs) -> Iterator[CompletionResponse]:
+        raise NotImplementedError
 
 
 @timeit()
 def create_index():
     print("Creating index")
-    # Wrapper around an LLMChain from Langchaim
-    llm = LLMPredictor(llm=LocalOPT())
-    # Service Context: a container for your llamaindex index and query
-    # https://gpt-index.readthedocs.io/en/latest/reference/service_context.html
-    service_context = ServiceContext.from_defaults(
-        llm_predictor=llm, prompt_helper=prompt_helper
-    )
+    Settings.llm = LocalOPT()
+    Settings.prompt_helper = prompt_helper
+
     docs = SimpleDirectoryReader("news").load_data()
-    index = GPTListIndex.from_documents(docs, service_context=service_context)
+    index = SummaryIndex.from_documents(docs)
     print("Done creating index", index)
     return index
 
 
 @timeit()
 def execute_query():
-    response = index.query(
+    query_engine = index.as_query_engine()
+    response = query_engine.query(
         "Who does Indonesia export its coal to in 2023?",
-        # This will preemptively filter out nodes that do not contain required_keywords
-        # or contain exclude_keywords, reducing the search space and hence time/number of LLM calls/cost.
-        exclude_keywords=["petroleum"],
-        # required_keywords=["coal"],
-        # exclude_keywords=["oil", "gas", "petroleum"]
     )
     return response
 
@@ -113,19 +106,16 @@ if __name__ == "__main__":
     Check if a local cache of the model exists,
     if not, it will download the model from huggingface
     """
-    if not os.path.exists("7_custom_opt.json"):
+    if not os.path.exists("7_custom_opt"):
         print("No local cache of model found, downloading from huggingface")
         index = create_index()
-        index.save_to_disk("7_custom_opt.json")
+        index.storage_context.persist(persist_dir="./7_custom_opt")
     else:
         print("Loading local cache of model")
-        llm = LLMPredictor(llm=LocalOPT())
-        service_context = ServiceContext.from_defaults(
-            llm_predictor=llm, prompt_helper=prompt_helper
-        )
-        index = GPTListIndex.load_from_disk(
-            "7_custom_opt.json", service_context=service_context
-        )
+        Settings.llm = LocalOPT()
+        Settings.prompt_helper = prompt_helper
+        storage_context = StorageContext.from_defaults(persist_dir="./7_custom_opt")
+        index = load_index_from_storage(storage_context)
 
     response = execute_query()
     print(response)
