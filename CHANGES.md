@@ -1,4 +1,4 @@
-# Changelog — `01_qna.py`
+# Changelog — Compatibility Fixes for LangChain 1.x, llama_index 0.10+, ChromaDB 1.x, OpenAI API 1.x
 
 ## 2026-02-19 — LangChain 1.x + ChromaDB Compatibility Fix
 
@@ -88,3 +88,61 @@ pip install langchain-community langchain-openai langchain-text-splitters chroma
 | `langchain-text-splitters` | `CharacterTextSplitter` |
 | `chromadb` | Vector store backend |
 | `python-dotenv` | `.env` file loading for `OPENAI_API_KEY` |
+
+---
+
+## 2026-02-20 — Compatibility Fixes for Current Package Versions
+
+### Files Fixed
+
+**02b_llama_chroma.py** — ChromaDB 1.x
+- `chromadb.Client()` → `chromadb.PersistentClient(path="./storage")`
+- `create_collection()` → `get_or_create_collection()`
+
+**03_db.py** — LangChain 1.x + Tool-calling
+- Changed `OpenAI` → `ChatOpenAI` (required for tool-calling agents)
+- `SQLDatabaseChain` → `create_sql_agent(agent_type="openai-tools")`
+- `.run()` → `.invoke({"input": query})`
+
+**04_csv.py** — LangChain 1.x + Security
+- Changed `OpenAI` → `ChatOpenAI`
+- Added `allow_dangerous_code=True` (required in LangChain 1.x for code execution)
+
+**07_custom.py** — llama_index 0.10+ + CPU compatibility
+- `max_input_size` → `context_window`
+- `max_chunk_overlap` → `chunk_overlap_ratio`
+- Removed `device="cuda:0"` for cross-platform compatibility
+
+**11_worldbuilding.py** — Cohere Generate API → Chat API
+- Rewrote `generate()` function to use `co.chat()` (Generate API deprecated Sept 15, 2025)
+- Model updated to `command-a-03-2025`
+- Simplified prompts for Chat API compatibility
+- Added error handling for inconsistent outputs
+- Note: Token likelihoods not available in Chat API
+
+**13_caching_sqlite.py** — LangChain 1.x legacy
+- `from langchain.chains.summarize` → `from langchain_classic.chains.summarize`
+
+**14_streamlit.py** — LangChain 1.x legacy
+- `from langchain.agents` → `from langchain_classic.agents`
+
+**15_sql.py** — Groq model update
+- `llama3-70b-8192` → `llama-3.3-70b-versatile` (old model decommissioned)
+
+**16_repl.py** — Groq model update
+- `llama3-70b-8192` → `llama-3.3-70b-versatile` (old model decommissioned)
+
+**requirements.txt** — Cross-platform + new packages
+- Commented out `triton` and `uvloop` (Linux-only packages)
+- Added `openai-agents==0.9.2` (for files 19-24)
+- Added `langchain-groq==1.1.2` (for 15_sql.py, 16_repl.py)
+- Added `langchain-classic==0.3.21` (for legacy APIs)
+- Updated all package versions to tested environment
+
+### Key Package Versions
+- langchain==1.2.10
+- langchain-community==0.4.1
+- langchain-openai==1.1.10
+- chromadb==1.5.0
+- llama-index==0.14.15
+- Python 3.12 required

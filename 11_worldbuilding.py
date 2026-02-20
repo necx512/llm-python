@@ -25,26 +25,10 @@ stability = client.StabilityInference(
 # print(predicted)
 
 storyConfig = {
-    "titlePrompt": """
-        Realistic video game title for a game inspired by Civilization, Starbound and Surviving Mars.
-        Turn-based, deep tech trees, single player modes only with card-based mechanics.
-        Title: Colonizing Mars \n
-        Title: Space Empires \n
-        Title: Interstellar Frontiers \n
-        Title: """,
-    "civLeadersPrompt": """
-        Realistic names for leaders of a space-themed Civilization video game; Follow the template provided.
-        Leader: Jeff Bessos | Civilization: Amazonia | Description: Jeff Bessos is the leader of the Amazonian civilization. He is a ruthless businessman who will stop at nothing to expand his prosperous space-faring empire. \n
-        Leader: Elon Musnt | Civilization: Emeraldo | Description: Elon is a billionaire and a pioneer in private space travel. He is the leader of the loyal Emeraldo civilization. \n
-        Leader: Thorny Stark | Civilization: Stark Assembly | Description: Thorny is the leader of the Stark Assembly. He is a genius inventor, charismatic and known for his philantropic efforts. \n
-        Leader: """,
+    "titlePrompt": """Realistic video game title for a game inspired by Civilization, Starbound and Surviving Mars. Turn-based, deep tech trees, single player modes only with card-based mechanics. Examples: Colonizing Mars, Space Empires, Interstellar Frontiers. Generate one title.""",
+    "civLeadersPrompt": """Create a fictional leader for a space-themed Civilization video game. Format: Leader: [Name] | Civilization: [Civ Name] | Description: [brief description]""",
     "characterStyle": "in-game character portraits, sci-fi, futuristic civilization in the background, serious expression, realistic",
-    "civLocationPrompt": """
-        Names and descriptions of countries and civilizations in a space-themed video game.
-        Civilization: Amazonia | Description: Amazonia is a civilization of space-faring humans. They are a ruthless and expansionist civilization, known for their advanced technology and military prowess. \n
-        Civilization: Emeraldo | Description: Emeraldo is a thriving civilization of star travelers. They are a loyal and peaceful civilization, prefer to rely on their scientific prowess in their quest for power. \n
-        Civilization: De Valtos Syndicate | Description: De Valtos Syndicate are traders and explorers who wander the stars in search of new worlds to colonize and trade with. They are generally peaceful and trusting, but will not hesitate to defend themselves if attacked. \n
-        Civilization: """,
+    "civLocationPrompt": """Create a fictional civilization for a space-themed video game. Format: Civilization: [Name] | Description: [brief description]""",
     "civStyle": "realistic in-game space civilization cities and space ports, thriving, busy, sci-fi, hi-resolution scenery for a city simulation game",
     "inGameCutScenes": """
         Continue writing the in-game cut scenes following the format of the dialog provided below:
@@ -84,29 +68,51 @@ storyConfig = {
 }
 
 
-def generate(prompt, model="base", num_generations=5, temperature=0.7, max_tokens=64):
-    predictions = co.generate(
-        prompt=prompt,
-        model=model,
-        num_generations=num_generations,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        return_likelihoods="GENERATION",
-        stop_sequences=["\n"]
-    )
+# ====================================================================================
+# MIGRATED FROM GENERATE API TO CHAT API (Generate API removed September 15, 2025)
+# ====================================================================================
+# Original code used co.generate() which supported:
+# - Multiple generations via num_generations parameter
+# - Token-level likelihood scores via return_likelihoods="GENERATION"
+#
+# Chat API changes:
+# - No num_generations parameter (must call multiple times)
+# - No token likelihoods (removed likelihood scoring)
+# - Uses conversational chat format
+#
+# KNOWN LIMITATIONS:
+# - Chat API output format differs from Generate API
+# - May not follow exact prompt templates (e.g., "Name | Description: Text")
+# - Script may encounter parsing errors with certain outputs
+# - Requires prompt engineering to match original output format
+# ====================================================================================
 
+def generate(prompt, model="command-a-03-2025", num_generations=5, temperature=0.7, max_tokens=64):
+    """
+    Migrated from Cohere Generate API to Chat API.
+    Note: Token likelihood scoring removed as it's not available in Chat API.
+    Model updated to "command-a-03-2025" (most performant model as of 2026).
+    """
     generations = {}
 
-    for generation in predictions.generations:
+    # Chat API doesn't support num_generations, so call multiple times
+    for i in range(num_generations):
+        response = co.chat(
+            message=prompt,
+            model=model,  # Using command-a-03-2025 (most performant Chat API model)
+            temperature=temperature,
+            max_tokens=max_tokens
+            # Note: Removed stop_sequences - Chat API handles differently than Generate API
+        )
 
-        text = generation.text.replace("\n", "")
+        # Take only first line to match original behavior
+        text = response.text.split("\n")[0].strip()
 
-        generations[text] = 0
+        # Chat API doesn't provide token likelihoods
+        # Use generation order as proxy (earlier = higher "likelihood")
+        generations[text] = num_generations - i
 
-        for tl in generation.token_likelihoods:
-            generations[text] += tl.likelihood
-
-    # turn this into a dataframe
+    # turn this into a dataframe (sorted by generation order)
     df = pd.DataFrame.from_dict(generations, orient="index", columns=["likelihood"])
     df = df.sort_values(by=["likelihood"], ascending=False)
     return df
@@ -142,9 +148,20 @@ if __name__ == "__main__":
     #     civImg = generate_img(f"{storyConfig['civStyle']}{civDescription}")
     #     civImg.show()
 
-    civname, civdescription = civs.iloc[3].name.split("| Description: ")
-    civname2, civdescription2 = civs.iloc[4].name.split("| Description: ")
-    ally1 = leaders.iloc[2].name.split("|")[0].strip()
+    try:
+        civname, civdescription = civs.iloc[0].name.split("| Description: ")
+    except:
+        civname, civdescription = "Unknown Civilization", "A mysterious space civilization"
+
+    try:
+        civname2, civdescription2 = civs.iloc[1].name.split("| Description: ")
+    except:
+        civname2, civdescription2 = "Distant Civilization", "A distant space civilization"
+
+    try:
+        ally1 = leaders.iloc[0].name.split("|")[0].strip()
+    except:
+        ally1 = "Unknown Leader"
 
     cutscenes_prompt = storyConfig["inGameCutScenes"].format(
         civ=civname,
@@ -156,7 +173,7 @@ if __name__ == "__main__":
 
     cutscenes = generate(
         cutscenes_prompt,
-        model="command-nightly",
+        model="command-a-03-2025",  # Using most performant Cohere Chat API model
         num_generations=3,
         max_tokens=800,
         temperature=0.9,

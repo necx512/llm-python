@@ -1,21 +1,21 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from llama_index import GPTVectorStoreIndex, SimpleDirectoryReader, load_index_from_storage, StorageContext
-from llama_index.storage.docstore import SimpleDocumentStore
-from llama_index.vector_stores import SimpleVectorStore
-from llama_index.storage.index_store import SimpleIndexStore
-from llama_index.graph_stores import SimpleGraphStore
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, load_index_from_storage, StorageContext
+from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.vector_stores import SimpleVectorStore
+from llama_index.core.storage.index_store import SimpleIndexStore
+from llama_index.core.graph_stores import SimpleGraphStore
 
 documents = SimpleDirectoryReader('news').load_data()
 
-index = GPTVectorStoreIndex.from_documents(documents)
+index = VectorStoreIndex.from_documents(documents)
 
 # save to disk
 index.storage_context.persist()
 
 # load from disk
-storage_context = StorageContext(
+storage_context = StorageContext.from_defaults(
     docstore=SimpleDocumentStore.from_persist_dir('storage'),
     vector_store=SimpleVectorStore.from_persist_dir('storage'),
     index_store=SimpleIndexStore.from_persist_dir('storage'),

@@ -34,7 +34,7 @@ industry = df.loc[:, ['industry', 'sub_industry', 'total_market_cap', 'num_of_co
 python_repl = PythonAstREPLTool(locals={"df": industry})
 
 llm = ChatGroq(
-    model_name="llama3-70b-8192"
+    model_name="llama-3.3-70b-versatile"  # Updated from deprecated llama3-70b-8192
 )
 
 system_prompt = f""" Here is the output of `df.head().to_markdown()`: \\

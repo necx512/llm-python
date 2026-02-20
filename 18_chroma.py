@@ -4,9 +4,9 @@ Accompanying course material: https://sectors.app/bulletin/ai-search
 """
 
 import chromadb
-chroma_client = chromadb.Client()
+chroma_client = chromadb.EphemeralClient()
 
-collection = chroma_client.create_collection(name="saham")
+collection = chroma_client.get_or_create_collection(name="saham")
 
 # get it from sectors.app/idx/bbca
 collection.add(

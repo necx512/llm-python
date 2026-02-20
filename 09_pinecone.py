@@ -7,18 +7,17 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-import pinecone
-from llama_index import (
+from pinecone import Pinecone, ServerlessSpec
+from llama_index.core import (
     SimpleDirectoryReader,
-    LLMPredictor,
-    ServiceContext,
-    GPTVectorStoreIndex,
-    QuestionAnswerPrompt,
-    PineconeReader
+    VectorStoreIndex,
+    Settings
 )
-from llama_index.vector_stores import PineconeVectorStore
-from llama_index.storage.storage_context import StorageContext
-from langchain.chat_models import ChatOpenAI
+# PineconeReader only used in commented-out code, requires llama-index-readers-pinecone package
+# from llama_index.readers.pinecone import PineconeReader
+from llama_index.vector_stores.pinecone import PineconeVectorStore
+from llama_index.core.storage.storage_context import StorageContext
+from llama_index.llms.openai import OpenAI  # Use llama_index's native OpenAI, not LangChain's
 
 # reader = PineconeReader(
 #     api_key=os.getenv("PINECONE_API_KEY"),
@@ -79,42 +78,39 @@ def build_docs(pages):
     return docs
 
 def build_context(model_name):
-    llm_predictor = LLMPredictor(
-        llm=ChatOpenAI(temperature=0, model_name=model_name)
-    )
-    return ServiceContext.from_defaults(llm_predictor=llm_predictor)
+    # In llama_index 0.10+, use Settings instead of ServiceContext
+    Settings.llm = OpenAI(temperature=0, model=model_name)
+    return None  # No longer need to return ServiceContext
 
 def build_index(pages, docs):
 
     page_indices = {}
-    pinecone.init(
-        api_key=os.getenv("PINECONE_API_KEY"),
-        environment="us-west4-gcp"
-    )
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
     # create a Pinecone index if you don't have one
     # https://openai.com/blog/new-and-improved-embedding-model (12288 -> 1536 dimensions)
-    # pinecone.create_index("nietzsche", dimension=1536, metric="cosine")
-    
-    pinecone_index = pinecone.Index("nietzsche")
+    # Free tier supports us-east-1 region
+    # pc.create_index(name="nietzsche", dimension=1536, metric="cosine", spec=ServerlessSpec(cloud="aws", region="us-east-1"))
+
+    pinecone_index = pc.Index("nietzsche")
 
     # pinecone_index.upsert("nietzsche_wandere", [1,2,3])
     # pinecone_index.describe_index_stats()
-    # pinecone_index.delete_index()
+    # pinecone_index.delete()
 
-    service_context = build_context("gpt-3.5-turbo")
+    build_context("gpt-3.5-turbo")  # Set global Settings.llm
 
     for page in pages:
-        
+
         vector_store = PineconeVectorStore(
             pinecone_index=pinecone_index,
             metadata_filters={"page": page}
         )
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        page_indices[page] = GPTVectorStoreIndex.from_documents(
-            docs[page], storage_context=storage_context, service_context=service_context
+        page_indices[page] = VectorStoreIndex.from_documents(
+            docs[page], storage_context=storage_context
         )
-        page_indices[page].index_struct.index_id = page
+        # index_struct.index_id is deprecated in llama_index 0.10+
 
     print("Indexing complete.")
     return page_indices
@@ -140,7 +136,9 @@ if __name__ == "__main__":
         "Answer the following question in the original German text, and provide an english translation and explanation in as instructive and educational way as possible: {query_str} \n"
     )
 
-    QA_PROMPT = QuestionAnswerPrompt(PROMPT_TEMPLATE)
+    # QuestionAnswerPrompt is deprecated in llama_index 0.10+, use PromptTemplate instead
+    from llama_index.core import PromptTemplate
+    QA_PROMPT = PromptTemplate(PROMPT_TEMPLATE)
     query_engine = indices["wande002.html"].as_query_engine(text_qa_template=QA_PROMPT)
     response = query_engine.query("What are important things according to Nietzsche?")
 
