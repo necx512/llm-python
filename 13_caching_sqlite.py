@@ -1,13 +1,13 @@
 import time
 from dotenv import load_dotenv
 import langchain
-from langchain.llms import OpenAI
-from langchain.callbacks import get_openai_callback
+from langchain_openai import OpenAI
+from langchain_community.callbacks import get_openai_callback
 
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.docstore.document import Document
-from langchain.cache import SQLiteCache
-from langchain.chains.summarize import load_summarize_chain
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_core.documents import Document
+from langchain_community.cache import SQLiteCache
+from langchain_classic.chains.summarize import load_summarize_chain  # Moved to langchain_classic in LangChain 1.x
 
 # add this to .gitignore if you don't want to commit the cache
 langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
@@ -15,8 +15,8 @@ langchain.llm_cache = SQLiteCache(database_path=".langchain.db")
 load_dotenv()
 
 text_splitter = CharacterTextSplitter()
-llm = OpenAI(model_name="text-davinci-002")
-no_cache_llm = OpenAI(model_name="text-davinci-002", cache=False)
+llm = OpenAI(model="gpt-3.5-turbo-instruct")  # Updated from deprecated text-davinci-002
+no_cache_llm = OpenAI(model="gpt-3.5-turbo-instruct", cache=False)
 
 with open("news/summary.txt") as f:
     news = f.read()
@@ -30,17 +30,17 @@ chain = load_summarize_chain(llm, chain_type="map_reduce", reduce_llm=no_cache_l
 
 with get_openai_callback() as cb:
     start = time.time()
-    result = chain.run(docs)
+    result = chain.invoke({"input_documents": docs})  # LangChain 1.x uses .invoke()
     end = time.time()
     print("--- result1")
-    print(result)
+    print(result["output_text"])  # Extract text from result dict
     print(str(cb) + f" ({end - start:.2f} seconds)")
 
 
 with get_openai_callback() as cb2:
     start = time.time()
-    result = chain.run(docs)
+    result = chain.invoke({"input_documents": docs})
     end = time.time()
     print("--- result2")
-    print(result)
+    print(result["output_text"])
     print(str(cb2) + f" ({end - start:.2f} seconds)")

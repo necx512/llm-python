@@ -2,25 +2,24 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from llama_index import GPTVectorStoreIndex, SimpleDirectoryReader
-from llama_index.storage import StorageContext
-from llama_index.vector_stores import ChromaVectorStore
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, StorageContext
+from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 
 #  https://docs.trychroma.com/embeddings
-# create a Chroma vector store, by default operating purely in-memory
-chroma_client = chromadb.Client()
+# create a Chroma vector store with persistent storage
+chroma_client = chromadb.PersistentClient(path="./storage")
 
-# create a collection
-chroma_collection = chroma_client.create_collection("newspieces")
+# create or load an existing collection
+chroma_collection = chroma_client.get_or_create_collection("newspieces")
 # https://docs.trychroma.com/api-reference
 print(chroma_collection.count())
 
 documents = SimpleDirectoryReader('news').load_data()
 
-vector_store = ChromaVectorStore(chroma_collection)
+vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 storage_context = StorageContext.from_defaults(vector_store=vector_store)
-index = GPTVectorStoreIndex.from_documents(documents, storage_context=storage_context)
+index = VectorStoreIndex.from_documents(documents, storage_context=storage_context)
 print(chroma_collection.count())
 print(chroma_collection.get()['documents'])
 print(chroma_collection.get()['metadatas'])

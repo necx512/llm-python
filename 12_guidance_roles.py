@@ -1,38 +1,38 @@
+# ====================================================================================
+# MIGRATED FROM GUIDANCE 0.x TO 1.x (Major API changes)
+# ====================================================================================
+# Original code used Handlebars-style templates ({{#system}}, {{gen}}, etc.)
+# New guidance 1.x uses Python decorators and function-based API
+# ====================================================================================
+
 from dotenv import load_dotenv
-import guidance
+from guidance import models, gen, system, user, assistant
 
 load_dotenv()
 
-chat = guidance.llms.OpenAI("gpt-3.5-turbo")
-guidance.llm = chat
+# Initialize model (guidance 1.x syntax)
+llm = models.OpenAI("gpt-3.5-turbo")
 
-program = guidance(
-    """
-    {{#system}}You are a CS Professor teaching {{os}} systems administration to your students.{{/system}}
+# Define the OS to teach
+os_name = "Linux"
 
-    {{#user~}}
-    What are some of the most common commands used in the {{os}} operating system? Provide a one-liner description.
-    List the commands and their descriptions one per line. Number them starting from 1.
-    {{~/user}}
+# Build the conversation using guidance 1.x API
+with system():
+    lm = llm + f"You are a CS Professor teaching {os_name} systems administration to your students."
 
-    {{#assistant~}}
-    {{gen 'commands' max_tokens=100}}
-    {{~/assistant}}    
+with user():
+    lm += f"What are some of the most common commands used in the {os_name} operating system? Provide a one-liner description. List the commands and their descriptions one per line. Number them starting from 1."
 
-    {{#user~}}
-    Which among these commands are beginners most likely to get wrong? Explain why the command might be confusing. Show example code to illustrate your point.
-    {{~/user}}
+with assistant():
+    lm += gen("commands", max_tokens=100)
 
-    {{#assistant~}}
-    {{gen 'confusing_commands' max_tokens=100}}
-    {{~/assistant}}
-    """,
-    llm=chat,
-)
+with user():
+    lm += "Which among these commands are beginners most likely to get wrong? Explain why the command might be confusing. Show example code to illustrate your point."
 
+with assistant():
+    lm += gen("confusing_commands", max_tokens=100)
 
-result = program(os="Linux")
-
-print(result["commands"])
+# Extract results
+print(lm["commands"])
 print("===")
-print(result)
+print(lm["confusing_commands"])

@@ -5,18 +5,18 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from llama_index import (
-    ObsidianReader, 
-    GPTVectorStoreIndex,
+from llama_index.core import (
+    VectorStoreIndex,
     StorageContext,
     load_index_from_storage
 )
+from llama_index.readers.obsidian import ObsidianReader
 
 # to see token counter and token usage for the LLM and Embedding
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
 
-
+# Change this to your Obsidian directory
 OBSIDIAN_DIR = "/home/samuel/vaults/fragments/journals"
 docs = ObsidianReader(OBSIDIAN_DIR).load_data()
 
@@ -48,8 +48,8 @@ def create_journal_nodes(dir_path):
     """
     Examples: https://gpt-index.readthedocs.io/en/stable/guides/primer/usage_pattern.html
     """
-    from llama_index import Document
-    from llama_index.node_parser import SimpleNodeParser
+    from llama_index.core import Document
+    from llama_index.core.node_parser import SimpleNodeParser
 
 
     docs = []
@@ -71,7 +71,7 @@ if Path("./storage").exists():
     index = load_index_from_storage(storage_context)
 else:
     nodes, docs = create_journal_nodes(OBSIDIAN_DIR)
-    index = GPTVectorStoreIndex(nodes)
+    index = VectorStoreIndex(nodes)
     index.storage_context.persist(persist_dir="./storage")
 
 if __name__ == "__main__":

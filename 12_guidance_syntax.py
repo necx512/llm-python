@@ -1,62 +1,48 @@
+# ====================================================================================
+# MIGRATED FROM GUIDANCE 0.x TO 1.x (Major API changes)
+# ====================================================================================
+# Original code used advanced Handlebars features ({{#geneach}}, {{select}}, etc.)
+# New guidance 1.x uses Python loops and simplified API
+# Some features simplified due to API changes
+# ====================================================================================
+
 import random
 from dotenv import load_dotenv
-import guidance
+from guidance import models, gen, user, assistant
 
 load_dotenv()
 
-# set the default language model that execute guidance programs
-guidance.llm = guidance.llms.OpenAI("text-davinci-003")
-# guidance.llm = guidance.llms.Transformers(
-#     "stabilityai/stablelm-base-alpha-3b", device="cpu"
-# )
+# Initialize model (guidance 1.x syntax)
+llm = models.OpenAI("gpt-3.5-turbo")  # Updated from text-davinci-003
 
+os_name = "Linux"
 
-program = guidance(
-    """What are the top ten most common commands used in the {{os}} operating system? Provide 
-    a one-liner description for each command.
-    {{#block hidden=True}}
-    A few example commands would be: 
-    [1]: pwd prints the current working directory
-    [2]: mv moves the file and can be used to rename a file 
-    {{gen 'example' n=2 stop='"' max_tokens=20 temperature=0.8}}
-    {{/block}}
-
-    Here are the common commands: 
-    {{#geneach 'commands' num_iterations=10}}
-    [{{@index}}]: "{{gen 'this' stop='"'}}", Description: "{{gen 'description' stop='"'}}" 
-    {{/geneach}}
-
-    {{select 'flavor' options=quizflavor}}
-    Explain the following commands for 🥇 {{randomPts}} points:
-    {{#each (pickthree commands)}}
-    {{@index+1}}. "{{this}}" 
-    {{/each}}
-
-    Use the commands you listed above as input, generate a valid JSON object that maps each command to its description.
-    "{
-        "{{os}}": [
-            {{#geneach 'commands' num_iterations=1}}{{#unless @first}},{{/unless}}
-                "{{gen 'this'}}"
-            {{/geneach}}
-    """
-)
-
+# Select quiz flavor
 quizflavor = [
     "Quiz of the day!",
     "Test your knowledge!",
     "Here is a quiz!",
     "You think you know Unix?",
 ]
+flavor = random.choice(quizflavor)
+randomPts = random.randint(1, 5)
 
-result = program(
-    os="Linux",
-    pickthree=lambda x: list(set(x))[:3],
-    randomPts=random.randint(1, 5),
-    quizflavor=quizflavor,
-)
+# Build the prompt (all text must be within role contexts)
+with user():
+    lm = llm + f"What are the top ten most common commands used in the {os_name} operating system? Provide a one-liner description for each command. List them numbered from 1-10."
 
-print(result["example"])
-print("===")
-print(result["commands"])
-print("===")
-print(result)
+with assistant():
+    lm += gen("commands_list", max_tokens=300)
+
+with user():
+    lm += f"\n{flavor}\nExplain the following commands for 🥇 {randomPts} points (pick 3 from the list above):"
+
+with assistant():
+    lm += gen("quiz_explanation", max_tokens=200)
+
+# Print results
+print("Generated commands:")
+print(lm["commands_list"])
+print("\n===")
+print("Quiz explanation:")
+print(lm["quiz_explanation"])

@@ -3,6 +3,7 @@ Obtain data from https://sectors.app
 Accompanying course material: https://sectors.app/bulletin/ai-search
 """
 
+from dotenv import load_dotenv
 import pandas as pd
 from langchain_community.utilities import SQLDatabase
 from sqlalchemy import create_engine
@@ -10,6 +11,8 @@ from langchain_groq import ChatGroq
 from langchain_community.agent_toolkits import create_sql_agent
 import os
 # from langchain_deepseek import ChatDeepSeek
+
+load_dotenv()
 
 if not os.path.exists('industry.db'):
     print("Creating industry.db")
@@ -31,7 +34,7 @@ query2 = "SELECT * FROM industry WHERE total_market_cap > 1e14"
 print(db.run(query2))
 
 llm = ChatGroq(
-    model_name="llama3-70b-8192"
+    model_name="llama-3.3-70b-versatile"  # Updated from deprecated llama3-70b-8192
 )
 
 # llm = ChatDeepSeek(

@@ -1,14 +1,14 @@
 import os
 from dotenv import load_dotenv
-from langchain.llms import OpenAI
-from langchain.agents import AgentType, initialize_agent, load_tools
-from langchain.callbacks import StreamlitCallbackHandler
+from langchain_openai import OpenAI
+from langchain_classic.agents import AgentType, initialize_agent, load_tools  # Legacy agents API moved to langchain_classic in LangChain 1.x
+from langchain_community.callbacks import StreamlitCallbackHandler
 import streamlit as st
 
 load_dotenv()
 
 llm = OpenAI(temperature=0, streaming=True, openai_api_key=os.getenv("OPENAI_API_KEY"))
-tools = load_tools(["ddg-search"])
+tools = load_tools(["ddg-search"], llm=llm)
 agent = initialize_agent(
     tools,
     llm,
@@ -23,5 +23,5 @@ if prompt := st.chat_input():
     with st.chat_message("assistant"):
         st.write("🧠 thinking...")
         st_callback = StreamlitCallbackHandler(st.container())
-        response = agent.run(prompt, callbacks=[st_callback])
-        st.write(response)
+        response = agent.invoke({"input": prompt}, callbacks=[st_callback])
+        st.write(response["output"])

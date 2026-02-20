@@ -1,11 +1,9 @@
 from dotenv import load_dotenv
 
-from langchain.document_loaders import DirectoryLoader, TextLoader
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain import OpenAI
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_text_splitters import CharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, OpenAI
+from langchain_community.vectorstores import Chroma
 
 load_dotenv()
 embeddings = OpenAIEmbeddings()
@@ -20,15 +18,15 @@ texts = text_splitter.split_documents(documents)
 # print(texts)
 
 docsearch = Chroma.from_documents(texts, embeddings)
-qa = RetrievalQA.from_chain_type(
-    llm=OpenAI(), 
-    chain_type="stuff", 
-    retriever=docsearch.as_retriever()
-)
+retriever = docsearch.as_retriever()
+llm = OpenAI()
 
 def query(q):
     print("Query: ", q)
-    print("Answer: ", qa.run(q))
+    docs = retriever.invoke(q)
+    context = "\n\n".join([doc.page_content for doc in docs])
+    answer = llm.invoke(f"Use the following context to answer the question.\n\nContext:\n{context}\n\nQuestion: {q}\n\nAnswer:")
+    print("Answer: ", answer)
 
 query("What are the effects of legislations surrounding emissions on the Australia coal market?")
 query("What are China's plans with renewable energy?")
